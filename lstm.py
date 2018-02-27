@@ -16,48 +16,44 @@ import numpy as np
     explains the difference?
 """
 
-TOTAL_SIZE = 10
+TOTAL_SIZE = 100000
 DATA_SIZE = int(0.6 * TOTAL_SIZE)
 VAL_SIZE = int(0.2 * TOTAL_SIZE)
 TEST_SIZE = int(0.2 * TOTAL_SIZE)
 
-BATCH_SIZE = 1
+BATCH_SIZE = 1000
 
-LENGTH = 2
+LENGTH = 50
 NUM_INPUT = 1
 NUM_UNITS = 128
 NUM_CLASSES = 2
-RATE = 0.001
-EPOCH = 2000
+RATE = 0.01
+EPOCH = 4000
 PRINT_EVERY_EPOCH = EPOCH / 10
 
 STOPPING_CRIT = 0.05
 
 # Creating random sequences and labels
-one_hot = lambda x: [0., 1.] if x == 1 else [1., 0.]
-f = np.vectorize(one_hot)
 
-train_X = np.floor(np.random.rand(DATA_SIZE, LENGTH) * 2)
-train_X = train_X.reshape(DATA_SIZE, LENGTH, 1)
-train_Y = np.array(np.mod(np.sum(train_X, 1), 2.0))
-train_Y = np.squeeze(train_Y)
-train_logits = np.zeros((len(train_Y), NUM_CLASSES))
-train_logits[np.arange(train_Y.size), train_Y.astype('int64')] = 1
+def create_xor_data(size):
+    X_ = np.floor(np.random.rand(size, LENGTH) * 2)
+    X_ = X_.reshape(size, LENGTH, 1)
+    Y_ = np.array(np.mod(np.sum(X_, 1), 2.0))
+    Y_ = np.squeeze(Y_)
+    Y_logits = np.zeros((len(Y_), NUM_CLASSES))
+    Y_logits[np.arange(Y_.size), Y_.astype('int64')] = 1
+    return X_, Y_, Y_logits
 
+def next_batch_shuffle(a, b, batch_size = None):
+    assert len(a) == len(b)
+    p = np.random.permutation(len(a))
+    if batch_size:
+        p = p[:batch_size]
+    return a[p], b[p]
 
-valid_X = np.floor(np.random.rand(VAL_SIZE, LENGTH) * 2)
-valid_X = valid_X.reshape(VAL_SIZE, LENGTH, 1)
-valid_Y = np.array(np.mod(np.sum(valid_X, 1), 2.0))
-valid_Y = np.squeeze(valid_Y)
-valid_logits = np.zeros((len(valid_Y), NUM_CLASSES))
-valid_logits[np.arange(valid_Y.size), valid_Y.astype('int64')] = 1
-
-test_X = np.floor(np.random.rand(TEST_SIZE, LENGTH) * 2)
-test_X = test_X.reshape(TEST_SIZE, LENGTH, 1)
-test_Y = np.array(np.mod(np.sum(test_X, 1), 2.0))
-test_Y = np.squeeze(test_Y)
-test_logits = np.zeros((len(test_Y), NUM_CLASSES))
-test_logits[np.arange(test_Y.size), test_Y.astype('int64')] = 1
+train_X, train_Y, train_logits = create_xor_data(DATA_SIZE)
+valid_X, valid_Y, valid_logits = create_xor_data(VAL_SIZE)
+test_X, test_Y, test_logits = create_xor_data(TEST_SIZE)
 
 # build LSTM
 weights = {
@@ -94,7 +90,8 @@ with tf.Session() as sess:
     sess.run(init)
 
     for step in range(EPOCH):
-        train_loss = sess.run(train, feed_dict={X: train_X, Y: train_logits})
+        train_batch = next_batch_shuffle(train_X, train_logits, batch_size = BATCH_SIZE)
+        train_loss = sess.run(train, feed_dict={X: train_batch[0], Y: train_batch[1]})
 
         a = None
         if step % PRINT_EVERY_EPOCH == 0:
@@ -110,6 +107,7 @@ with tf.Session() as sess:
     print("Train Acc:", sess.run(acc, feed_dict={X: train_X, Y: train_logits}))
     print("Valid Acc:", sess.run(acc, feed_dict={X: valid_X, Y: valid_logits}))
 
-print(valid_X.T)
-print(train_X.T)
-print(test_X.T)
+    example_X = test_X[0]
+    example_X = example_X.reshape((1, LENGTH, NUM_INPUT))
+    example_logit = test_logits[0]
+    example_logit = example_logit.reshape((1, NUM_CLASSES))
