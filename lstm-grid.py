@@ -5,15 +5,15 @@ import torch.nn.functional as F
 import numpy as np
 from torch.autograd import Variable
 
-LENGTH = 20
-BATCH_SIZE = 10
-NUM_BATCHES = 15
+LENGTH = 10
+BATCH_SIZE = 100
+NUM_BATCHES = 150
 TOTAL_SIZE = BATCH_SIZE * NUM_BATCHES
 TEST_SIZE = 2 ** LENGTH
 
 LEARNING_RATE = 0.005
 NUM_UNITS = 500
-EPOCH = 10
+EPOCH = 100
 LOG_EVERY_EPOCH = 5
 LOG_EVERY_BATCH = NUM_BATCHES
 NUM_CLASSES = 2
@@ -108,16 +108,19 @@ def test():
     test_loss = 0
     correct = 0
     data, target = generate_data(size = TEST_SIZE)
-    data, target = data.cuda(), target.cuda()
-    data, target = Variable(data, volatile=True), Variable(target, volatile=True)
-    output = model(data)
-    test_loss += F.nll_loss(output, target).data[0]
-    pred = output.data.max(1, keepdim=True)[1]
-    print(data)
-    print(pred)
-    correct += pred.eq(target.data.view_as(pred)).cpu().sum()
-    acc = correct / TEST_SIZE
-    print(acc)
+    batches = int(TEST_SIZE / BATCH_SIZE)
+
+    for i in range(batches):
+        d = data[i * BATCH_SIZE:(i + 1) * BATCH_SIZE]
+        t = target[i * BATCH_SIZE:(i + 1) * BATCH_SIZE]
+        d, t = d.cuda(), t.cuda()
+        d, t = Variable(d, volatile=True), Variable(t, volatile=True)
+        out = model(d)
+        test_loss += F.nll_loss(out, t).data[0]
+        pred = out.data.max(1, keepdim=True)[1]
+        correct += pred.eq(t.data.view_as(pred)).cpu().sum()
+    print(test_loss / batches)
+    print(correct / TEST_SIZE)
 
 for epoch in range(1, EPOCH + 1):
     loss = train(epoch)
