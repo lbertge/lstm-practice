@@ -16,16 +16,16 @@ import numpy as np
     explains the difference?
 """
 
-TOTAL_SIZE = 1000
+TOTAL_SIZE = 100000
 DATA_SIZE = int(0.6 * TOTAL_SIZE)
 VAL_SIZE = int(0.2 * TOTAL_SIZE)
 TEST_SIZE = int(0.2 * TOTAL_SIZE)
 
-BATCH_SIZE = 600
+BATCH_SIZE = 1000
 
-LENGTH = 10
+LENGTH = 50
 NUM_INPUT = 1
-NUM_UNITS = 56
+NUM_UNITS = 128
 NUM_CLASSES = 2
 RATE = 0.01
 EPOCH = 4000
@@ -68,7 +68,7 @@ Y = tf.placeholder("float", [None, NUM_CLASSES])
 
 def network(x, weights, biases):
     x = tf.unstack(x, LENGTH, axis=1)
-    lstm = tf.contrib.rnn.BasicLSTMCell(NUM_UNITS, forget_bias = 1.0)
+    lstm = tf.contrib.rnn.BasicLSTMCell(NUM_UNITS)
     output, states = tf.contrib.rnn.static_rnn(lstm, x, dtype=tf.float32)
 
     return tf.matmul(output[-1], weights['out']) + biases['out']
