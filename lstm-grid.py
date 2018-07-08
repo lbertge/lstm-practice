@@ -5,6 +5,14 @@ import torch.nn.functional as F
 import numpy as np
 from torch.autograd import Variable
 
+
+"""
+    Pytorch implementation of a 1-Grid LSTM (https://arxiv.org/abs/1507.01526) on the XOR parity problem (https://blog.openai.com/requests-for-research-2/).
+    This achieves 99% accuracy after about 100 epochs, for sequences with a fixed length of 10
+
+    This is adapted from the Torch implementation of Grid LSTM, found here: https://github.com/christopher5106/grid-1D-LSTM-torch/blob/master/main.lua
+"""
+
 LENGTH = 10
 BATCH_SIZE = 100
 NUM_BATCHES = 150
@@ -18,7 +26,6 @@ LOG_EVERY_EPOCH = 5
 LOG_EVERY_BATCH = NUM_BATCHES
 NUM_CLASSES = 2
 NUM_LAYERS = 5
-
 
 def generate_all_data():
     data = torch.rand(TOTAL_SIZE, LENGTH).round()
@@ -40,6 +47,8 @@ class Net(nn.Module):
         self.m0 = nn.Linear(LENGTH, NUM_UNITS)
         self.h0 = nn.Linear(LENGTH, NUM_UNITS)
 
+        # create the forget, input, candidate, output linearities for each layer
+
         self.forget_lin = [nn.Linear(NUM_UNITS, NUM_UNITS).cuda() for i in range(NUM_LAYERS)]
         self.input_lin = [nn.Linear(NUM_UNITS, NUM_UNITS).cuda() for i in range(NUM_LAYERS)]
         self.candidate_lin = [nn.Linear(NUM_UNITS, NUM_UNITS).cuda() for i in range(NUM_LAYERS)]
@@ -48,11 +57,14 @@ class Net(nn.Module):
         self.activation = nn.Linear(NUM_UNITS + NUM_UNITS, 2)
 
     def step(self, h, m, forget_lin_, input_lin_, candidate_lin_, output_lin_):
+        # create the gates for each linearites, using the sigmoid as the activation function
 
         forget_gate = F.sigmoid(forget_lin_(h))
         input_gate = F.sigmoid(input_lin_(h))
         candidate = F.tanh(candidate_lin_(h))
         output_gate = F.sigmoid(output_lin_(h))
+
+        # memory vector m, and a hidden vector h
 
         m = (input_gate * candidate) + (forget_gate * m)
         h = F.tanh(output_gate * m)
@@ -67,6 +79,7 @@ class Net(nn.Module):
         h = self.h0(inputs)
 
         for i in range(NUM_LAYERS):
+            # for each layer, compute the vectors h, m, which are the inputs fed into the following layer
             forget_lin_ = self.forget_lin[i]
             input_lin_ = self.input_lin[i]
             candidate_lin_ = self.candidate_lin[i]
@@ -85,6 +98,7 @@ d, t = generate_all_data()
 idx = torch.randperm(TOTAL_SIZE)
 
 def train(epoch):
+    print("Running on train data")
     model.train()
     epoch_loss = 0
     idx = torch.randperm(TOTAL_SIZE)
@@ -104,6 +118,7 @@ def train(epoch):
     return epoch_loss
 
 def test():
+    print("Running on test data")
     model.eval()
     test_loss = 0
     correct = 0
@@ -119,8 +134,8 @@ def test():
         test_loss += F.nll_loss(out, t).data[0]
         pred = out.data.max(1, keepdim=True)[1]
         correct += pred.eq(t.data.view_as(pred)).cpu().sum()
-    print(test_loss / batches)
-    print(correct / TEST_SIZE)
+    print("Test loss: ", test_loss / batches)
+    print("Number correct: ", correct / TEST_SIZE)
 
 for epoch in range(1, EPOCH + 1):
     loss = train(epoch)
